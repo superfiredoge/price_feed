@@ -23,4 +23,13 @@ pub enum ContractError {
 
     #[error("FastPriceFeed: already enabled")]
     AlreadyEnabled {},
+
+    #[error("FastPriceFeed: timestamp below allowed range")]
+    TimestampBelowAllowedRange {},
+
+    #[error("FastPriceFeed: timestamp exceeds allowed range")]
+    TimestamExceedsAllowedRange {},
+
+    #[error("FastPriceFeed: minBlockInterval not yet passeds")]
+    MinblockInterval {},
 }

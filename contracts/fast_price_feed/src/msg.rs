@@ -1,4 +1,4 @@
-use crate::state::{Config, PriceDataItem, SpreadBasisPoint,TokenData};
+use crate::state::{Config, PriceDataItem, SpreadBasisPoint, TokenData};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Uint256, Uint64};
 

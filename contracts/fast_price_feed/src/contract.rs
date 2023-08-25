@@ -162,6 +162,8 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::MaxTimeDeviation => to_binary(&MAX_TIME_DEVIATION.load(deps.storage)?),
         QueryMsg::SpreadBasisPoint => to_binary(&SPREAD_BASIS_POINT_STATE.load(deps.storage)?),
         QueryMsg::TokenData => to_binary(&TOKEN_DATA.load(deps.storage)?),
-        QueryMsg::DisableFastPriceVoteCount => to_binary(&DISABLE_FAST_PRICE_VOTE_COUNT.load(deps.storage)?),
+        QueryMsg::DisableFastPriceVoteCount => {
+            to_binary(&DISABLE_FAST_PRICE_VOTE_COUNT.load(deps.storage)?)
+        }
     }
 }

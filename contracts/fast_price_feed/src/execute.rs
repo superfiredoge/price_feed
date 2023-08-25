@@ -569,7 +569,6 @@ fn set_price(
     token: &Addr,
     _price: Uint256,
     vault_price_feed: &Addr,
-    //TODO: use fast price events
     _fast_price_events: &Addr,
 ) -> Result<Response, ContractError> {
     // Assuming we have an equivalent function for getLatestPrimaryPrice
@@ -694,7 +693,7 @@ fn set_last_updated_values(
     store: &mut dyn Storage,
     block: &BlockInfo,
     timestamp: u64,
-) -> Result<bool, StdError> {
+) -> Result<bool, ContractError> {
     // Check for minBlockInterval
     let min_block_interval = CONFIG.load(store)?.min_block_interval;
     let mut last_updated = LAST_UPDATED.load(store).unwrap_or_default();
@@ -707,32 +706,19 @@ fn set_last_updated_values(
                 "Overflow while calculating blocks passed",
             ))?;
         if blocks_passed < min_block_interval.u64() {
-            return Err(StdError::generic_err(
-                "FastPriceFeed: minBlockInterval not yet passed",
-            ));
+            return Err(ContractError::MinblockInterval {});
         }
     }
 
-    let max_time_deviation = MAX_TIME_DEVIATION.load(store).unwrap_or_default();
-    if max_time_deviation > block.time.seconds() {
-        return Err(StdError::generic_err(
-            "FastPriceFeed: _timestamp below allowed range",
-        ));
-    }
-
+    let max_time_deviation = MAX_TIME_DEVIATION.load(store)?;
     let lower_bound = block.time.minus_seconds(max_time_deviation);
     let upper_bound = block.time.plus_seconds(max_time_deviation);
-
-    if timestamp < lower_bound.seconds() {
-        return Err(StdError::generic_err(
-            "FastPriceFeed: _timestamp below allowed range",
-        ));
+    if timestamp <= lower_bound.seconds() {
+        return Err(ContractError::TimestampBelowAllowedRange {});
     }
 
-    if timestamp > upper_bound.seconds() {
-        return Err(StdError::generic_err(
-            "FastPriceFeed: _timestamp exceeds allowed range",
-        ));
+    if timestamp >= upper_bound.seconds() {
+        return Err(ContractError::TimestamExceedsAllowedRange {});
     }
 
     // Do not update prices if _timestamp is before the current lastUpdatedAt value

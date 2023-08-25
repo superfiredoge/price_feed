@@ -1,5 +1,4 @@
 use crate::contract::execute;
-use crate::execute::initialize;
 use crate::execute::*;
 use crate::helpers::{is_gov, only_signer, only_token_manager, only_updater};
 use crate::msg::ExecuteMsg;
@@ -7,19 +6,43 @@ use crate::state::*;
 
 use crate::errors::ContractError;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-use cosmwasm_std::{Addr, Response, Timestamp, Uint256, Uint64};
+use cosmwasm_std::{Addr, DepsMut, MessageInfo, Timestamp, Uint256, Uint64};
+
+fn generate_config() -> Config {
+    Config {
+        price_duration: Uint64::zero(),
+        max_price_update_delay: Uint64::zero(),
+        min_block_interval: Uint64::zero(),
+        max_deviation_basis_points: Uint256::zero(),
+        fast_price_events: Addr::unchecked(""),
+        token_manager: Addr::unchecked(""),
+    }
+}
+
+fn setup_with_gov(deps: DepsMut) -> MessageInfo {
+    let gov = Addr::unchecked("gov");
+    GOV.save(deps.storage, &gov).unwrap();
+    let info = mock_info(gov.as_str(), &[]);
+    info
+}
+
+fn setup_with_updater(deps: DepsMut) -> MessageInfo {
+    let updater = Addr::unchecked("updated");
+    IS_UPDATER.save(deps.storage, &updater, &true).unwrap();
+    let info = mock_info(updater.as_str(), &[]);
+    info
+}
 
 #[test]
 fn test_set_compacted_prices() {
     let mut deps = mock_dependencies();
-    let mut env = mock_env();
+    let env = mock_env();
     let mock_info = mock_info("admin", &[]);
-    env.block.time = Timestamp::from_seconds(1);
 
-    crate::state::VAULT_ADDRESS
+    VAULT_ADDRESS
         .save(&mut deps.storage, &Addr::unchecked("mock_vault_address"))
         .unwrap();
-    crate::state::CONFIG
+    CONFIG
         .save(
             &mut deps.storage,
             &Config {
@@ -33,7 +56,7 @@ fn test_set_compacted_prices() {
         )
         .unwrap();
 
-    crate::state::TOKEN_DATA
+    TOKEN_DATA
         .save(
             &mut deps.storage,
             &vec![
@@ -61,8 +84,11 @@ fn test_set_compacted_prices() {
         )
         .unwrap();
 
-    crate::state::PRICE_DATA_INTERVAL
-        .save(&mut deps.storage, &Uint64::one())
+    PRICE_DATA_INTERVAL
+        .save(deps.as_mut().storage, &Uint64::one())
+        .unwrap();
+    MAX_TIME_DEVIATION
+        .save(deps.as_mut().storage, &1000u64)
         .unwrap();
 
     // generate price for functions and pack then in Uint256
@@ -72,15 +98,12 @@ fn test_set_compacted_prices() {
         combined_bytes[i * 8..(i + 1) * 8].copy_from_slice(&price.to_le_bytes());
     }
 
-    let result = crate::contract::execute(
-        deps.as_mut(),
-        env,
-        mock_info,
-        ExecuteMsg::SetCompactedPrices {
-            price_bit_array: vec![Uint256::from_le_bytes(combined_bytes)],
-            timestamp: Uint64::from(1u32),
-        },
-    );
+    let msg = ExecuteMsg::SetCompactedPrices {
+        price_bit_array: vec![Uint256::from_le_bytes(combined_bytes)],
+        timestamp: env.block.time.seconds().into(),
+    };
+
+    let result = execute(deps.as_mut(), env, mock_info, msg);
     assert!(result.is_ok());
 
     for i in 0..prices.len() - 1 {
@@ -107,6 +130,8 @@ fn test_set_compacted_prices() {
 fn test_initialize() {
     let mut deps = mock_dependencies();
     let sender = Addr::unchecked("sender");
+    let env = mock_env();
+    let info = mock_info("sender", &[]);
 
     let min_auth = Uint256::from(12345u64);
     let signers = vec![Addr::unchecked("signer1"), Addr::unchecked("signer2")];
@@ -114,17 +139,13 @@ fn test_initialize() {
 
     // Test initialization
     GOV.save(deps.as_mut().storage, &sender).ok();
-    let result = initialize(
-        deps.as_mut(),
-        sender.clone(),
-        min_auth.clone(),
-        signers.clone(),
-        updaters.clone(),
-    );
-    assert_eq!(
-        result,
-        Ok(Response::new().add_attribute("method", "intialize"))
-    );
+    let msg = ExecuteMsg::Initialize {
+        min_auth,
+        signers: signers.clone(),
+        updaters: updaters.clone(),
+    };
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg);
+    assert!(res.is_ok());
 
     // Check if signers and updaters are saved correctly
     for signer in signers.iter() {
@@ -132,10 +153,7 @@ fn test_initialize() {
     }
 
     for updater in updaters.iter() {
-        assert_eq!(
-            IS_UPDATER.load(deps.as_mut().storage, updater).unwrap(),
-            true
-        );
+        assert!(IS_UPDATER.load(deps.as_mut().storage, updater).unwrap(),)
     }
 
     // Check if min_auth is saved correctly
@@ -145,8 +163,13 @@ fn test_initialize() {
     assert_eq!(IS_INITIALIZED.load(deps.as_mut().storage).unwrap(), true);
 
     // Test re-initialization
-    let result = initialize(deps.as_mut(), sender, min_auth, signers, updaters);
-    assert_eq!(result, Err(ContractError::AlreadyInitialized {}));
+    let msg = ExecuteMsg::Initialize {
+        min_auth,
+        signers: signers.clone(),
+        updaters: updaters.clone(),
+    };
+    let res = execute(deps.as_mut(), env, info, msg);
+    assert_eq!(res.unwrap_err(), ContractError::AlreadyInitialized {});
 }
 
 #[test]
@@ -293,12 +316,9 @@ fn test_only_token_manager() {
 #[test]
 fn test_set_signer() {
     let mut deps = mock_dependencies();
-    let gov = Addr::unchecked("gov");
+    let info = setup_with_gov(deps.as_mut());
     let account = Addr::unchecked("account");
     let env = mock_env();
-
-    let info = mock_info(&gov.as_str(), &[]);
-    GOV.save(deps.as_mut().storage, &gov).unwrap();
 
     let msg = ExecuteMsg::SetSigner {
         account: account.clone(),
@@ -314,12 +334,9 @@ fn test_set_signer() {
 #[test]
 fn test_set_updater() {
     let mut deps = mock_dependencies();
-    let gov = Addr::unchecked("gov");
+    let info = setup_with_gov(deps.as_mut());
     let account = Addr::unchecked("account");
     let env = mock_env();
-
-    let info = mock_info(&gov.as_str(), &[]);
-    GOV.save(deps.as_mut().storage, &gov).unwrap();
 
     let msg = ExecuteMsg::SetUpdater {
         account: account.clone(),
@@ -335,27 +352,14 @@ fn test_set_updater() {
 #[test]
 fn test_set_fast_price_events() {
     let mut deps = mock_dependencies();
-    let gov = Addr::unchecked("gov");
+    let info = setup_with_gov(deps.as_mut());
     let account = Addr::unchecked("fast_price_event");
     let env = mock_env();
 
     //init with defualt config
     CONFIG
-        .save(
-            deps.as_mut().storage,
-            &Config {
-                price_duration: Uint64::zero(),
-                max_price_update_delay: Uint64::zero(),
-                min_block_interval: Uint64::zero(),
-                max_deviation_basis_points: Uint256::zero(),
-                fast_price_events: Addr::unchecked(""),
-                token_manager: Addr::unchecked(""),
-            },
-        )
+        .save(deps.as_mut().storage, &generate_config())
         .unwrap();
-
-    let info = mock_info(&gov.as_str(), &[]);
-    GOV.save(deps.as_mut().storage, &gov).unwrap();
 
     let msg = ExecuteMsg::SetFastPriceEvents {
         fast_price_events: account.clone(),
@@ -370,12 +374,9 @@ fn test_set_fast_price_events() {
 #[test]
 fn test_set_vault_price_feed() {
     let mut deps = mock_dependencies();
-    let gov = Addr::unchecked("gov");
+    let info = setup_with_gov(deps.as_mut());
     let account = Addr::unchecked("vault_address");
     let env = mock_env();
-
-    let info = mock_info(&gov.as_str(), &[]);
-    GOV.save(deps.as_mut().storage, &gov).unwrap();
 
     let msg = ExecuteMsg::SetVaultPriceFeed {
         vault_price_feed: account.clone(),
@@ -385,4 +386,135 @@ fn test_set_vault_price_feed() {
 
     let vault = VAULT_ADDRESS.load(deps.as_ref().storage).unwrap();
     assert_eq!(vault, account);
+}
+
+#[test]
+fn test_max_time_deviation() {
+    let mut deps = mock_dependencies();
+    let info = setup_with_gov(deps.as_mut());
+    let env = mock_env();
+
+    let msg = ExecuteMsg::SetMaxTimeDeviation {
+        max_time_deviation: Uint64::one(),
+    };
+    let res = execute(deps.as_mut(), env, info, msg);
+    assert!(res.is_ok());
+
+    let time_diviation = MAX_TIME_DEVIATION.load(deps.as_ref().storage).unwrap();
+    assert_eq!(time_diviation, 1);
+}
+
+#[test]
+fn test_set_price_duration() {
+    let mut deps = mock_dependencies();
+    let info = setup_with_gov(deps.as_mut());
+    let env = mock_env();
+
+    CONFIG
+        .save(deps.as_mut().storage, &generate_config())
+        .unwrap();
+
+    let msg = ExecuteMsg::SetPriceDuration {
+        price_duration: Uint64::one(),
+    };
+    let res = execute(deps.as_mut(), env, info, msg);
+    assert!(res.is_ok());
+
+    let config = CONFIG.load(deps.as_ref().storage).unwrap();
+    assert_eq!(config.price_duration.u64(), 1);
+}
+
+#[test]
+fn test_set_max_price_update_delay() {
+    let mut deps = mock_dependencies();
+    let info = setup_with_gov(deps.as_mut());
+    let env = mock_env();
+
+    CONFIG
+        .save(deps.as_mut().storage, &generate_config())
+        .unwrap();
+
+    let msg = ExecuteMsg::SetMaxPriceUpdateDelay {
+        max_price_update_delay: Uint64::one(),
+    };
+    let res = execute(deps.as_mut(), env, info, msg);
+    assert!(res.is_ok());
+
+    let config = CONFIG.load(deps.as_ref().storage).unwrap();
+    assert_eq!(config.max_price_update_delay.u64(), 1);
+}
+
+#[test]
+fn test_set_basis_points() {
+    let mut deps = mock_dependencies();
+    let info = setup_with_gov(deps.as_mut());
+    let env = mock_env();
+
+    SPREAD_BASIS_POINT_STATE
+        .save(
+            deps.as_mut().storage,
+            &SpreadBasisPoint {
+                spread_basis_points_if_chain_error: Uint256::zero(),
+                spread_basis_points_if_inactive: Uint256::zero(),
+            },
+        )
+        .unwrap();
+
+    let msg = ExecuteMsg::SetSpreadBasisPointsIfChainError {
+        spread_basis_points_if_chain_error: Uint256::one(),
+    };
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg);
+    assert!(res.is_ok());
+
+    let msg = ExecuteMsg::SetSpreadBasisPointsIfInactive {
+        spread_basis_points_if_inactive: Uint256::one(),
+    };
+    let res = execute(deps.as_mut(), env, info, msg);
+    assert!(res.is_ok());
+
+    let spread = SPREAD_BASIS_POINT_STATE
+        .load(deps.as_ref().storage)
+        .unwrap();
+    assert_eq!(spread.spread_basis_points_if_chain_error, Uint256::one());
+    assert_eq!(spread.spread_basis_points_if_inactive, Uint256::one());
+}
+
+#[test]
+fn test_set_prices() {
+    let mut deps = mock_dependencies();
+    let info = setup_with_updater(deps.as_mut());
+    let env = mock_env();
+
+    let tokens = vec![Addr::unchecked("token0"), Addr::unchecked("token1")];
+    let prices = vec![Uint256::from(100u64), Uint256::from(200u64)];
+    let timestamp = env.block.time;
+
+    CONFIG
+        .save(deps.as_mut().storage, &generate_config())
+        .unwrap();
+    MAX_TIME_DEVIATION
+        .save(deps.as_mut().storage, &1000u64)
+        .unwrap();
+    VAULT_ADDRESS
+        .save(deps.as_mut().storage, &Addr::unchecked("vault"))
+        .unwrap();
+    PRICE_DATA_INTERVAL
+        .save(deps.as_mut().storage, &Uint64::one())
+        .unwrap();
+
+    let msg = ExecuteMsg::SetPrices {
+        tokens: tokens,
+        prices: prices.clone(),
+        timestamp: Uint64::from(timestamp.seconds()),
+    };
+    let res = execute(deps.as_mut(), env, info, msg);
+    assert!(res.is_ok());
+
+    // check prices
+    for i in 0..prices.len() {
+        let price = PRICES
+            .load(&deps.storage, &Addr::unchecked(format!("token{}", i)))
+            .unwrap();
+        assert_eq!(price, prices[i]);
+    }
 }
