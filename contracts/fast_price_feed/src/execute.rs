@@ -404,7 +404,7 @@ pub fn set_compacted_prices(
     price_bit_array: Vec<Uint256>,
     timestamp: Uint64,
 ) -> Result<Response, ContractError> {
-    let should_update = set_last_updated_values(deps.storage, &env.block, timestamp.u64())?; // Assuming this function is ported                                        //TODO: match and fix both compacted rpice and prices with bits functions
+    let should_update = set_last_updated_values(deps.storage, &env.block, timestamp.u64())?;
     let vault_address = VAULT_ADDRESS.load(deps.storage)?;
     let fast_price_event = CONFIG.load(deps.storage)?.fast_price_events;
     if should_update {
@@ -487,13 +487,13 @@ pub fn set_prices_with_bits_and_execute(
     let execute_increase_positions_msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: position_router_addr.to_string().clone(),
         msg: to_binary("sample msg for the interface")?,
-        funds: vec![], // No funds sent
+        funds: vec![],
     });
 
     let execute_decrease_positions_msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: position_router_addr.to_string(),
         msg: to_binary("smaple msg required")?,
-        funds: vec![], // No funds sent
+        funds: vec![],
     });
 
     Ok(Response::new()
@@ -537,7 +537,6 @@ pub fn enable_fast_price(
     _env: Env,
     sender: Addr,
 ) -> Result<Response, ContractError> {
-    // Ensure the caller is a signer
     only_signer(deps.as_ref(), &sender)?;
 
     // Check if the signer has already voted
@@ -571,12 +570,12 @@ fn set_price(
     vault_price_feed: &Addr,
     _fast_price_events: &Addr,
 ) -> Result<Response, ContractError> {
-    // Assuming we have an equivalent function for getLatestPrimaryPrice
+    // Assuming we have an equivalent query for getLatestPrimaryPrice
     let ref_price = get_latest_primary_price(vault_price_feed, token)?;
 
     let fast_price = PRICES.load(store, token).unwrap_or_default();
     let price_data_interval = PRICE_DATA_INTERVAL.load(store)?;
-    // Fetch price data
+
     let PriceDataItem {
         ref_price: prev_ref_price,
         ref_time,
@@ -610,7 +609,6 @@ fn set_price(
             cumulative_fast_delta = Uint256::zero();
         }
 
-        //TODO: fix unwrap stuff here
         cumulative_ref_delta = cumulative_ref_delta
             .checked_add(
                 ref_delta_amount
@@ -694,7 +692,6 @@ fn set_last_updated_values(
     block: &BlockInfo,
     timestamp: u64,
 ) -> Result<bool, ContractError> {
-    // Check for minBlockInterval
     let min_block_interval = CONFIG.load(store)?.min_block_interval;
     let mut last_updated = LAST_UPDATED.load(store).unwrap_or_default();
 
