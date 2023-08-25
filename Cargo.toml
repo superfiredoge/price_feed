@@ -18,7 +18,7 @@ cw-utils = "1.0.1"
 anyhow = "1.0.70"
 thiserror = "1.0.40"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
-
+semver = "1"
 [profile.release]
 codegen-units = 1
 debug = false

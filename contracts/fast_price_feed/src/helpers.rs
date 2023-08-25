@@ -1,6 +1,6 @@
 use crate::errors::ContractError;
 use crate::state::{GOV, IS_SIGNER, IS_UPDATER, TOKEN_MANAGER};
-use cosmwasm_std::{Addr, Deps, Uint256};
+use cosmwasm_std::{Addr, Deps, StdError, Uint256};
 
 pub struct PositionRouterState {
     pub increase_position_request_keys_start: Uint256,
@@ -60,4 +60,8 @@ pub fn get_latest_primary_price(
 ) -> Result<Uint256, ContractError> {
     // Logic to get the latest primary price from vault_price_feed...
     Ok(Uint256::zero()) // Just a placeholder for now
+}
+
+pub fn from_semver(err: semver::Error) -> StdError {
+    StdError::generic_err(format!("Semver: {}", err))
 }

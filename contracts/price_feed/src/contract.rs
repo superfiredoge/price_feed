@@ -1,17 +1,20 @@
 use crate::query::GetRoundDataResult;
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
+    to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
+    Uint128,
 };
-use cw2::set_contract_version;
+use cw2::{get_contract_version, set_contract_version};
 
 use crate::{
     error::ContractError,
-    msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
+    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     state::{
         LATEST_ROUND, PRICE_FEED_ADMINS, PRICE_FEED_ANSWERS, PRICE_FEED_GOV, PRICE_FEED_STATE,
     },
 };
+
+use semver::Version;
 
 // version info
 const CONTRACT_NAME: &str = "crates.io:{{project-name}}";
@@ -33,6 +36,33 @@ pub fn instantiate(
     Ok(Response::new()
         .add_attribute("method", "instantiate")
         .add_attribute("owner", info.sender))
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
+    let version: Version = CONTRACT_VERSION.parse().map_err(from_semver)?;
+
+    // Current contract version
+    let stored_info = get_contract_version(deps.storage)?;
+
+    // Stored contract version
+    let stored_version: Version = stored_info.version.parse().map_err(from_semver)?;
+
+    // version less than stored
+    if stored_version > version {
+        return Err(ContractError::CannotMigrateVersion {
+            previous_version: stored_info.version,
+        });
+    }
+
+    // check contract type
+    if CONTRACT_NAME != stored_info.contract {
+        return Err(ContractError::CannotMigrate {
+            previous_contract: stored_info.contract,
+        });
+    }
+
+    Ok(Response::default())
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -104,4 +134,8 @@ pub fn check_admin(deps: Deps, sender: Addr) -> Result<(), ContractError> {
     } else {
         Err(ContractError::Forbidden {})
     }
+}
+
+fn from_semver(err: semver::Error) -> StdError {
+    StdError::generic_err(format!("Semver: {}", err))
 }

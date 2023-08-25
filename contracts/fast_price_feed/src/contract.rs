@@ -5,16 +5,19 @@ use cosmwasm_std::{
 use crate::{
     errors::ContractError,
     execute::*,
-    msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
+    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     query::*,
 };
-use cw2::set_contract_version;
+
+use crate::execute::init;
+use crate::helpers::from_semver;
+use crate::msg::ExecuteMsg::*;
+use crate::state::*;
+use cw2::{get_contract_version, set_contract_version};
+use semver::Version;
 
 const CONTRACT_NAME: &str = "crates.io:{{project-name}}";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-use crate::execute::init;
-use crate::msg::ExecuteMsg::*;
-use crate::state::*;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -30,6 +33,33 @@ pub fn instantiate(
     )?;
 
     init(deps, msg.config)
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
+    let version: Version = CONTRACT_VERSION.parse().map_err(from_semver)?;
+
+    // Current contract version
+    let stored_info = get_contract_version(deps.storage)?;
+
+    // Stored contract version
+    let stored_version: Version = stored_info.version.parse().map_err(from_semver)?;
+
+    // version less than stored
+    if stored_version > version {
+        return Err(ContractError::CannotMigrateVersion {
+            previous_version: stored_info.version,
+        });
+    }
+
+    // Check contract type
+    if CONTRACT_NAME != stored_info.contract {
+        return Err(ContractError::CannotMigrate {
+            previous_contract: stored_info.contract,
+        });
+    }
+
+    Ok(Response::default())
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

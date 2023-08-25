@@ -6,6 +6,12 @@ pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
 
+    #[error("FastPriceFeed: cannot migrate from {previous_contract}")]
+    CannotMigrate { previous_contract: String },
+
+    #[error("FastPriceFeed: cannot migrate from {previous_version}")]
+    CannotMigrateVersion { previous_version: String },
+
     #[error("FastPriceFeed: invalid lengths")]
     InvalidLength {},
 

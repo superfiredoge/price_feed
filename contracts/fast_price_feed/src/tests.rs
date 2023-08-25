@@ -6,7 +6,7 @@ use crate::state::*;
 
 use crate::errors::ContractError;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-use cosmwasm_std::{Addr, DepsMut, MessageInfo, Timestamp, Uint256, Uint64};
+use cosmwasm_std::{Addr, DepsMut, MessageInfo, Uint256, Uint64};
 
 fn generate_config() -> Config {
     Config {
@@ -503,7 +503,7 @@ fn test_set_prices() {
         .unwrap();
 
     let msg = ExecuteMsg::SetPrices {
-        tokens: tokens,
+        tokens,
         prices: prices.clone(),
         timestamp: Uint64::from(timestamp.seconds()),
     };

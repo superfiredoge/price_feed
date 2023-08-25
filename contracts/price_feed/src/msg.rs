@@ -6,9 +6,11 @@ use cosmwasm_std::{Addr, Int256, Uint128};
 pub struct InstantiateMsg {}
 
 #[cw_serde]
+pub struct MigrateMsg {}
+
+#[cw_serde]
 pub enum ExecuteMsg {
     SetAdmin { admin: Addr, status: bool },
-
     SetLatestAnswer(Int256),
 }
 
