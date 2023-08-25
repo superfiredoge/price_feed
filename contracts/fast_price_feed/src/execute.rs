@@ -459,10 +459,7 @@ pub fn set_prices_with_bits_and_execute(
     max_increase_positions: Uint256,
     max_decrease_positions: Uint256,
 ) -> Result<Response, ContractError> {
-    // Ensure only the updater can call this function
     only_updater(deps.as_ref(), &sender)?;
-
-    // Set prices with bits
     _set_prices_with_bits(deps, env, price_bits, timestamp)?;
 
     let position_router = load_position_router(&position_router_addr);
@@ -509,7 +506,6 @@ pub fn disable_fast_price(
     _env: Env,
     sender: Addr,
 ) -> Result<Response, ContractError> {
-    // Ensure the caller is a signer
     only_signer(deps.as_ref(), &sender)?;
 
     // Check if the signer has already voted
