@@ -1,0 +1,31 @@
+[workspace]
+members = [
+  "contracts/price_feed",
+  "contracts/fast_price_feed",
+]
+
+[workspace.package]
+version = "0.0.1"
+license = "GPL-3.0-or-later"
+edition = "2021"
+
+[workspace.dependencies]
+cosmwasm-schema = "1.1.3"
+cosmwasm-std = "1.2.1"
+cw-storage-plus = "1.0.1"
+cw2 = "1.0.1"
+cw-utils = "1.0.1"
+anyhow = "1.0.70"
+thiserror = "1.0.40"
+serde = { version = "1.0.103", default-features = false, features = ["derive"] }
+
+[profile.release]
+codegen-units = 1
+debug = false
+debug-assertions = false
+incremental = false
+lto = true
+overflow-checks = true
+opt-level = 3
+panic = "abort"
+rpath = false
