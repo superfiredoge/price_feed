@@ -13,7 +13,7 @@ use crate::{
     },
 };
 
-// version info 
+// version info
 const CONTRACT_NAME: &str = "crates.io:{{project-name}}";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 

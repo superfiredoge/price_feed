@@ -1,12 +1,13 @@
-use crate::helpers::{is_gov, only_signer, only_token_manager, only_updater};
-use crate::execute::{enable_fast_price, disable_fast_price};
-use crate::msg::ExecuteMsg;
+use crate::contract::execute;
 use crate::execute::initialize;
+use crate::execute::*;
+use crate::helpers::{is_gov, only_signer, only_token_manager, only_updater};
+use crate::msg::ExecuteMsg;
 use crate::state::*;
 
+use crate::errors::ContractError;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{Addr, Response, Timestamp, Uint256, Uint64};
-use crate::errors::ContractError;
 
 #[test]
 fn test_set_compacted_prices() {
@@ -87,7 +88,9 @@ fn test_set_compacted_prices() {
             PRICES
                 .load(&deps.storage, &Addr::unchecked(format!("token{}", i)))
                 .unwrap(),
-            Uint256::from(prices[i]).checked_mul(crate::execute::PRICE_PRECISION).unwrap()
+            Uint256::from(prices[i])
+                .checked_mul(crate::execute::PRICE_PRECISION)
+                .unwrap()
         );
     }
 
@@ -285,4 +288,101 @@ fn test_only_token_manager() {
         only_token_manager(deps.as_ref(), &non_token_manager_addr),
         Err(ContractError::Forbidden {})
     );
+}
+
+#[test]
+fn test_set_signer() {
+    let mut deps = mock_dependencies();
+    let gov = Addr::unchecked("gov");
+    let account = Addr::unchecked("account");
+    let env = mock_env();
+
+    let info = mock_info(&gov.as_str(), &[]);
+    GOV.save(deps.as_mut().storage, &gov).unwrap();
+
+    let msg = ExecuteMsg::SetSigner {
+        account: account.clone(),
+        is_active: true,
+    };
+    let res = execute(deps.as_mut(), env, info, msg);
+    assert!(res.is_ok());
+
+    let status = IS_SIGNER.load(deps.as_ref().storage, &account).unwrap();
+    assert!(status);
+}
+
+#[test]
+fn test_set_updater() {
+    let mut deps = mock_dependencies();
+    let gov = Addr::unchecked("gov");
+    let account = Addr::unchecked("account");
+    let env = mock_env();
+
+    let info = mock_info(&gov.as_str(), &[]);
+    GOV.save(deps.as_mut().storage, &gov).unwrap();
+
+    let msg = ExecuteMsg::SetUpdater {
+        account: account.clone(),
+        is_active: true,
+    };
+    let res = execute(deps.as_mut(), env, info, msg);
+    assert!(res.is_ok());
+
+    let status = IS_UPDATER.load(deps.as_ref().storage, &account).unwrap();
+    assert!(status);
+}
+
+#[test]
+fn test_set_fast_price_events() {
+    let mut deps = mock_dependencies();
+    let gov = Addr::unchecked("gov");
+    let account = Addr::unchecked("fast_price_event");
+    let env = mock_env();
+
+    //init with defualt config
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                price_duration: Uint64::zero(),
+                max_price_update_delay: Uint64::zero(),
+                min_block_interval: Uint64::zero(),
+                max_deviation_basis_points: Uint256::zero(),
+                fast_price_events: Addr::unchecked(""),
+                token_manager: Addr::unchecked(""),
+            },
+        )
+        .unwrap();
+
+    let info = mock_info(&gov.as_str(), &[]);
+    GOV.save(deps.as_mut().storage, &gov).unwrap();
+
+    let msg = ExecuteMsg::SetFastPriceEvents {
+        fast_price_events: account.clone(),
+    };
+    let res = execute(deps.as_mut(), env, info, msg);
+    assert!(res.is_ok());
+
+    let config = CONFIG.load(deps.as_ref().storage).unwrap();
+    assert_eq!(config.fast_price_events, account);
+}
+
+#[test]
+fn test_set_vault_price_feed() {
+    let mut deps = mock_dependencies();
+    let gov = Addr::unchecked("gov");
+    let account = Addr::unchecked("vault_address");
+    let env = mock_env();
+
+    let info = mock_info(&gov.as_str(), &[]);
+    GOV.save(deps.as_mut().storage, &gov).unwrap();
+
+    let msg = ExecuteMsg::SetVaultPriceFeed {
+        vault_price_feed: account.clone(),
+    };
+    let res = execute(deps.as_mut(), env, info, msg);
+    assert!(res.is_ok());
+
+    let vault = VAULT_ADDRESS.load(deps.as_ref().storage).unwrap();
+    assert_eq!(vault, account);
 }

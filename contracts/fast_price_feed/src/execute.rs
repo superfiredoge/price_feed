@@ -1,8 +1,8 @@
 use crate::errors::ContractError;
 use crate::state::*;
 use cosmwasm_std::{
-    to_binary,Addr, BlockInfo, CosmosMsg, DepsMut, Env,
-    Response, StdError, StdResult, Storage, Uint256, Uint64, WasmMsg,
+    to_binary, Addr, BlockInfo, CosmosMsg, DepsMut, Env, Response, StdError, StdResult, Storage,
+    Uint256, Uint64, WasmMsg,
 };
 
 use crate::helpers::*;
@@ -73,6 +73,7 @@ pub fn set_updater(
     is_active: bool,
 ) -> Result<Response, ContractError> {
     is_gov(deps.as_ref(), &sender)?;
+
     IS_UPDATER.save(deps.storage, &account, &is_active)?;
 
     Ok(Response::new()
@@ -520,7 +521,11 @@ pub fn disable_fast_price(
     let current_vote_count = DISABLE_FAST_PRICE_VOTE_COUNT
         .load(deps.storage)
         .unwrap_or_default();
-    DISABLE_FAST_PRICE_VOTE_COUNT.save(deps.storage, &(current_vote_count.checked_add(Uint256::one()).unwrap()))?;
+
+    DISABLE_FAST_PRICE_VOTE_COUNT.save(
+        deps.storage,
+        &(current_vote_count.checked_add(Uint256::one()).unwrap()),
+    )?;
 
     Ok(Response::new()
         .add_attribute("method", "disable_fast_price")
@@ -547,7 +552,11 @@ pub fn enable_fast_price(
     let current_vote_count = DISABLE_FAST_PRICE_VOTE_COUNT
         .load(deps.storage)
         .unwrap_or_default();
-    DISABLE_FAST_PRICE_VOTE_COUNT.save(deps.storage, &(current_vote_count.checked_sub(Uint256::one()).unwrap()))?;
+
+    DISABLE_FAST_PRICE_VOTE_COUNT.save(
+        deps.storage,
+        &(current_vote_count.checked_sub(Uint256::one()).unwrap()),
+    )?;
 
     Ok(Response::new()
         .add_attribute("method", "enable_fast_price")

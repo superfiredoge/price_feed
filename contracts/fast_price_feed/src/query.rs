@@ -67,11 +67,10 @@ pub fn get_price(
                 fast_price
             }
         } else if ref_price < fast_price {
-                ref_price
-            } else {
-                fast_price
-            };
-        
+            ref_price
+        } else {
+            fast_price
+        };
 
         return Ok(result_price);
     }

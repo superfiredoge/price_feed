@@ -1,8 +1,8 @@
+use crate::contract::execute;
+use crate::contract::instantiate;
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg};
-use crate::contract::execute;
 use crate::state::{PRICE_FEED_ADMINS, PRICE_FEED_GOV};
-use crate::contract::instantiate;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::Addr;
 

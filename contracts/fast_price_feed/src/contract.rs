@@ -14,6 +14,7 @@ const CONTRACT_NAME: &str = "crates.io:{{project-name}}";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 use crate::execute::init;
 use crate::msg::ExecuteMsg::*;
+use crate::state::*;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -46,6 +47,7 @@ pub fn execute(
             updaters,
         } => initialize(deps, sender, min_auth, signers, updaters),
         SetSigner { account, is_active } => set_signer(deps, sender, account, is_active),
+        SetUpdater { account, is_active } => set_updater(deps, sender, account, is_active),
         SetFastPriceEvents { fast_price_events } => {
             set_fast_price_events(deps, sender, fast_price_events)
         }
@@ -145,5 +147,21 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         }
         QueryMsg::FavorFastPrice { token } => to_binary(&favor_fast_price(deps, token)?),
         QueryMsg::GetPriceData { token } => to_binary(&get_price_data(deps, token)?),
+        QueryMsg::GetConfig => to_binary(&CONFIG.load(deps.storage)?),
+        QueryMsg::IsUpdater { address } => to_binary(&IS_UPDATER.load(deps.storage, &address)?),
+        QueryMsg::Prices { address } => to_binary(&PRICES.load(deps.storage, &address)?),
+        QueryMsg::PriceData { address } => to_binary(&PRICE_DATA.load(deps.storage, &address)?),
+        QueryMsg::MaxCumulativeDeltaDiffs { address } => {
+            to_binary(&MAX_CUMULATIVE_DELTA_DIFFS.load(deps.storage, &address)?)
+        }
+        QueryMsg::IsSigner { address } => to_binary(&IS_SIGNER.load(deps.storage, &address)?),
+        QueryMsg::DisableFastPriceVotes { address } => {
+            to_binary(&DISABLE_FAST_PRICE_VOTES.load(deps.storage, &address)?)
+        }
+        QueryMsg::MinAuthorizations => to_binary(&MIN_AUTH.load(deps.storage)?),
+        QueryMsg::MaxTimeDeviation => to_binary(&MAX_TIME_DEVIATION.load(deps.storage)?),
+        QueryMsg::SpreadBasisPoint => to_binary(&SPREAD_BASIS_POINT_STATE.load(deps.storage)?),
+        QueryMsg::TokenData => to_binary(&TOKEN_DATA.load(deps.storage)?),
+        QueryMsg::DisableFastPriceVoteCount => to_binary(&DISABLE_FAST_PRICE_VOTE_COUNT.load(deps.storage)?),
     }
 }

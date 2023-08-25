@@ -1,6 +1,6 @@
+use crate::state::{Config, PriceDataItem, SpreadBasisPoint,TokenData};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Uint256, Uint64};
-use crate::state::{Config, PriceDataItem};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -16,6 +16,11 @@ pub enum ExecuteMsg {
     },
 
     SetSigner {
+        account: Addr,
+        is_active: bool,
+    },
+
+    SetUpdater {
         account: Addr,
         is_active: bool,
     },
@@ -110,9 +115,46 @@ pub enum QueryMsg {
         ref_price: Uint256,
         maximise: bool,
     },
+
     #[returns(bool)]
     FavorFastPrice { token: Addr },
 
     #[returns(PriceDataItem)]
     GetPriceData { token: Addr },
+
+    #[returns(Config)]
+    GetConfig,
+
+    #[returns(bool)]
+    IsUpdater { address: Addr },
+
+    #[returns(Uint256)]
+    Prices { address: Addr },
+
+    #[returns(PriceDataItem)]
+    PriceData { address: Addr },
+
+    #[returns(Uint256)]
+    MaxCumulativeDeltaDiffs { address: Addr },
+
+    #[returns(bool)]
+    IsSigner { address: Addr },
+
+    #[returns(bool)]
+    DisableFastPriceVotes { address: Addr },
+
+    #[returns(Uint256)]
+    DisableFastPriceVoteCount,
+
+    #[returns(Uint256)]
+    MinAuthorizations,
+
+    #[returns(Uint256)]
+    MaxTimeDeviation,
+
+    #[returns(SpreadBasisPoint)]
+    SpreadBasisPoint,
+
+    #[returns(Vec< TokenData >)]
+    TokenData,
 }
