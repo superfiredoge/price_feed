@@ -176,13 +176,11 @@ pub fn set_spread_basis_points_if_inactive(
     spread_basis_points_if_inactive: Uint256,
 ) -> Result<Response, ContractError> {
     is_gov(deps.as_ref(), &sender)?;
-    SPREAD_BASIS_POINT_STATE.update(
-        deps.storage,
-        |mut basis_point: SpreadBasisPoint| -> Result<SpreadBasisPoint, ContractError> {
-            basis_point.spread_basis_points_if_inactive = spread_basis_points_if_inactive;
-            Ok(basis_point)
-        },
-    )?;
+    let mut spread_basis_point = SPREAD_BASIS_POINT_STATE
+        .may_load(deps.storage)?
+        .unwrap_or_default();
+    spread_basis_point.spread_basis_points_if_inactive = spread_basis_points_if_inactive;
+    SPREAD_BASIS_POINT_STATE.save(deps.storage, &spread_basis_point)?;
 
     Ok(Response::new()
         .add_attribute("method", "set_spread_basis_points_if_inactive")
@@ -198,13 +196,11 @@ pub fn set_spread_basis_points_if_chain_error(
     spread_basis_points_if_chain_error: Uint256,
 ) -> Result<Response, ContractError> {
     is_gov(deps.as_ref(), &sender)?;
-    SPREAD_BASIS_POINT_STATE.update(
-        deps.storage,
-        |mut basis_point: SpreadBasisPoint| -> Result<SpreadBasisPoint, ContractError> {
-            basis_point.spread_basis_points_if_chain_error = spread_basis_points_if_chain_error;
-            Ok(basis_point)
-        },
-    )?;
+    let mut spread_basis_point = SPREAD_BASIS_POINT_STATE
+        .may_load(deps.storage)?
+        .unwrap_or_default();
+    spread_basis_point.spread_basis_points_if_chain_error = spread_basis_points_if_chain_error;
+    SPREAD_BASIS_POINT_STATE.save(deps.storage, &spread_basis_point)?;
 
     Ok(Response::new()
         .add_attribute("method", "set_spread_basis_points_if_chain_error")
@@ -252,13 +248,10 @@ pub fn set_last_updated_at(
     last_updated_at: Uint64,
 ) -> Result<Response, ContractError> {
     is_gov(deps.as_ref(), &sender)?;
-    LAST_UPDATED.update(
-        deps.storage,
-        |mut last_updated| -> Result<LastUpdated, ContractError> {
-            last_updated.last_updated_at = last_updated_at.u64();
-            Ok(last_updated)
-        },
-    )?;
+
+    let mut last_updated = LAST_UPDATED.may_load(deps.storage)?.unwrap_or_default();
+    last_updated.last_updated_at = last_updated_at.u64();
+    LAST_UPDATED.save(deps.storage, &last_updated)?;
 
     Ok(Response::new()
         .add_attribute("method", "set_last_updated_at")
@@ -693,7 +686,7 @@ fn set_last_updated_values(
     timestamp: u64,
 ) -> Result<bool, ContractError> {
     let min_block_interval = CONFIG.load(store)?.min_block_interval;
-    let mut last_updated = LAST_UPDATED.load(store).unwrap_or_default();
+    let mut last_updated = LAST_UPDATED.may_load(store)?.unwrap_or_default();
 
     if min_block_interval > Uint64::zero() {
         let blocks_passed = block

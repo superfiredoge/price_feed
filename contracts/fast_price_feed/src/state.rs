@@ -44,6 +44,7 @@ pub struct PriceDataItem {
 }
 
 #[cw_serde]
+#[derive(Default)]
 pub struct SpreadBasisPoint {
     pub spread_basis_points_if_inactive: Uint256,
     pub spread_basis_points_if_chain_error: Uint256,

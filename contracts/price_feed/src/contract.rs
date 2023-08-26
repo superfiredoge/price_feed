@@ -10,7 +10,8 @@ use crate::{
     error::ContractError,
     msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     state::{
-        LATEST_ROUND, PRICE_FEED_ADMINS, PRICE_FEED_ANSWERS, PRICE_FEED_GOV, PRICE_FEED_STATE,
+        PriceFeedState, LATEST_ROUND, PRICE_FEED_ADMINS, PRICE_FEED_ANSWERS, PRICE_FEED_GOV,
+        PRICE_FEED_STATE,
     },
 };
 
@@ -31,7 +32,7 @@ pub fn instantiate(
 
     PRICE_FEED_GOV.save(deps.storage, &info.sender)?;
     PRICE_FEED_ADMINS.save(deps.storage, info.sender.clone(), &true)?;
-    LATEST_ROUND.save(deps.storage, &crate::state::PriceFeedState::default())?;
+    LATEST_ROUND.save(deps.storage, &PriceFeedState::default())?;
 
     Ok(Response::new()
         .add_attribute("method", "instantiate")
@@ -89,12 +90,15 @@ pub fn execute(
             check_admin(deps.as_ref(), info.sender)?;
 
             let mut new_round = Uint128::zero();
-            LATEST_ROUND.update(deps.storage, |mut state: crate::state::PriceFeedState|->Result<crate::state::PriceFeedState,ContractError>{
-                state.round_id=state.round_id.checked_add(Uint128::one()).unwrap();
-                state.answer=answer;
-                new_round=state.round_id;
-                Ok(state)
-            })?;
+            LATEST_ROUND.update(
+                deps.storage,
+                |mut state: PriceFeedState| -> Result<PriceFeedState, ContractError> {
+                    state.round_id = state.round_id.checked_add(Uint128::one()).unwrap();
+                    state.answer = answer;
+                    new_round = state.round_id;
+                    Ok(state)
+                },
+            )?;
 
             PRICE_FEED_ANSWERS.save(deps.storage, new_round.u128(), &answer)?;
             Ok(Response::new()

@@ -445,20 +445,30 @@ fn test_set_max_price_update_delay() {
 }
 
 #[test]
-fn test_set_basis_points() {
+fn test_set_last_updated_at() {
     let mut deps = mock_dependencies();
     let info = setup_with_gov(deps.as_mut());
     let env = mock_env();
 
-    SPREAD_BASIS_POINT_STATE
-        .save(
-            deps.as_mut().storage,
-            &SpreadBasisPoint {
-                spread_basis_points_if_chain_error: Uint256::zero(),
-                spread_basis_points_if_inactive: Uint256::zero(),
-            },
-        )
+    CONFIG
+        .save(deps.as_mut().storage, &generate_config())
         .unwrap();
+
+    let msg = ExecuteMsg::SetLastUpdatedAt {
+        last_updated_at: Uint64::one(),
+    };
+    let res = execute(deps.as_mut(), env, info, msg);
+    assert!(res.is_ok());
+
+    let config = LAST_UPDATED.load(deps.as_ref().storage).unwrap();
+    assert_eq!(config.last_updated_at, 1);
+}
+
+#[test]
+fn test_set_basis_points() {
+    let mut deps = mock_dependencies();
+    let info = setup_with_gov(deps.as_mut());
+    let env = mock_env();
 
     let msg = ExecuteMsg::SetSpreadBasisPointsIfChainError {
         spread_basis_points_if_chain_error: Uint256::one(),
@@ -475,6 +485,7 @@ fn test_set_basis_points() {
     let spread = SPREAD_BASIS_POINT_STATE
         .load(deps.as_ref().storage)
         .unwrap();
+
     assert_eq!(spread.spread_basis_points_if_chain_error, Uint256::one());
     assert_eq!(spread.spread_basis_points_if_inactive, Uint256::one());
 }
